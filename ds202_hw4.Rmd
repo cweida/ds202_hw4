@@ -1,0 +1,124 @@
+---
+title: "ds202_HW4"
+author: 'Chase Weida; Github: cweida'
+date: "3/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+`%notin%` <- Negate(`%in%`)
+```
+
+### 1
+Get a frequency breakdown of the number of chicks, their average weight and the standard deviation of the weights in each of the diets at the start of the study.
+Store the resulting data frame in a variable named weight0 and print.
+
+```{r}
+dat1 <- ChickWeight %>%
+  filter(Time == 0) %>%
+  group_by(Diet) %>%
+  summarize(average_weight = mean(weight, na.rm = TRUE),
+            sd_weight = sd(weight, na.rm = TRUE))
+
+dat2 <- ChickWeight %>% filter(Time == 0) %>% group_by(Chick)
+weight0 <- data.frame(dat1)
+weight0[1:4,"Frequency"] <- c(sum(dat2$Diet == 1),sum(dat2$Diet == 2),sum(dat2$Diet == 3),sum(dat2$Diet == 4))
+weight0
+
+```
+
+### 2
+Each chick should have twelve weight measurements. Use the dplyr package to identify how many measurements are there for each chick. Extract a subset of the data for all chicks with complete information, name the data set complete, and print the first 3 rows. 
+(Hint: you might want to use mutate to introduce a helper variable consisting of the number of observations)
+
+```{r}
+ChickWeight %>% group_by(Chick) %>% summarize(n = n())
+complete <- ChickWeight[ChickWeight$Chick %notin% c(18,16,15),]
+head(complete,3)
+```
+
+### 3
+In the complete data set introduce a new variable that measures the current weight difference compared to day 0. Name this variable weightgain and print the first 3 rows of the new data frame.
+
+```{r}
+complete <- complete %>% group_by(Chick) %>% mutate(weightgain = weight - weight[1])
+head(complete,3)
+```
+
+### 4
+Use {ggplot2} to create side-by-side boxplots of weightgain by Diet for day 21. Change the order of the categories in the Diet variable such that the boxplots are ordered by median weightgain, and the lower limit of the y axis should be 0. Describe the relationship in 2-3 sentences.
+
+
+```{r}
+ggplot(data = complete, mapping = aes(y = weightgain, x = reorder(Diet, weightgain, FUN = median))) + xlab("Diet") +ggtitle("weightgain vs Diet")+ geom_boxplot() + ylim(0,330)
+```
+The boxplots show a gradual increase in the median of the weightgain variable across the 4 diets. Diet 4 has a higher median and tighter spread between the first and third quartiles. Thus, although the third diet has higher outliers, the 4th diet suggests better overall performance.
+
+### 5
+Answer each of the following questions using numerical and graphical summary. Also explain what you found: (a) Which chick gained the most weight and which gained the least weight? (b) What diets were they on?
+
+```{r}
+finalWeek <- complete %>% filter(Time == 21)
+Max <- max(finalWeek$weightgain)
+Min <- min(finalWeek$weightgain)
+
+
+
+
+maxDiet <- complete %>% filter(Time == 21, weightgain == Max)
+minDiet <- complete %>% filter(Time == 21, weightgain == Min)
+Min
+Max
+maxDiet$Chick
+minDiet$Chick
+maxDiet$Diet
+minDiet$Diet
+
+ggplot(finalWeek, aes(x = Chick, y = weightgain, color = Diet)) + geom_point()
+```
+
+The above code extracted the highest and lowest weight gain, their identification number, and which diet they were on. The chick with the highest weight gain was number 35 who gained 332 units on diet 3. The lowest weight gain was from chick 24 with 32 units gained on diet 2.
+
+### 6
+
+For the chicks with the least and the most weight at time 0, plot their growth trajectories over time.
+
+```{r}
+MinMax <- complete %>% filter(Chick %in% c(24,32))
+ggplot(MinMax, aes(x = Time, y = weightgain, color = Chick)) + geom_line()
+```
+
+As seen above, the two chicks grew together until about the 6 unit mark. At which point chick 24's weight gain dropped slightly and leveled out for the remaineder of the experiment. Chick 32 on the other hand experienced linear growth over the course of the experiment.
+
+### 7
+
+Add to the previous plot the average growth trajectory for all chicks (calculated as the mean weight for each chick at each time). How do the trajectories compare?
+
+```{r}
+MeanGain <- complete %>% group_by(Time) %>% summarize(MeanAtTime = mean(weightgain))
+
+MeanGain["Time"] <- complete$Time[1:12]
+MeanGain["Chick"] <- c("Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean", "Mean")
+ggplot(MinMax, aes(x = Time, y = weightgain, color = Chick)) + geom_line() + geom_line(MeanGain, mapping = aes(x = Time, y = MeanAtTime))
+
+```
+
+The chick with the minimum weight gain followed the mean almost exactly until time unit six. At which point its weight dropped and flattened out. The chick with the maximum weight gain diverged from the mean early and kept up a slightly more drastic slope which compounded into a final difference of more than 100 weight units of total gain more than the mean.
+
+### 8
+
+What else do you find interesting in the dataset? Show your exploratory analysis.
+
+```{r}
+MinMaxVarDiet <- complete %>% group_by(Diet) %>% summarize(variance = var(weightgain), min = min(weightgain), max = max(weightgain))
+
+ggplot(MinMaxVarDiet) + geom_bar(mapping = aes(x = Diet, y = variance), stat = "identity")
+ggplot(MinMaxVarDiet) + geom_bar(mapping = aes(x = Diet, y = max, fill = Diet), stat = "identity") + geom_point(mapping = aes(x = Diet, y = min, fill = Diet), stat = "identity")
+```
+
+As stated earlier, one who was making a decision on which chick diet to implement may see that the median of 3 is only slightly lower than than that of diet 4. They may be tempted to choose 3 for the higher max chick growth, but the high variance will also lead to smaller chicks as well. This makes it a less desireable diet than diet 4. Additionally, we can see that diets 2,3, and 4 had monotone increase weights with the weightgain category never falling below 0. Diet 1 on the other hand experienced negative growth in a certain chick over the course of the experiment. Due to the infrequency of this occurrence it may be considered an outlier and disregarded. However, it is something to consider when choosing a chick diet due to the generally lower performance of diet 1.
+
+
+
